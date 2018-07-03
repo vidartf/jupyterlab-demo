@@ -10,6 +10,7 @@ import shutil
 env_name = 'jupyterlab-demo'
 demofolder = 'demofiles'
 source = '' if os.name == 'nt' else 'source'
+concat_cmd = '&' if os.name == 'nt' else ';'
 
 
 def rmdir(dirname):
@@ -33,10 +34,10 @@ def environment(ctx, clean=False, env_name=env_name):
     '''
     if clean:
         print('deleting environment')
-        ctx.run('{0!s} deactivate; conda remove -n {1!s} --all'.format(source, env_name))
+        ctx.run('{0!s} deactivate{1!s} conda remove -n {2!s} --all'.format(source, concat_cmd, env_name))
     # Create a new environment
     print('creating environment {0!s}'.format(env_name))
-    ctx.run("conda env create -f binder/environment.yml -n {0!s}".format(env_name))
+    ctx.run("conda env create -n {0!s} -f binder/environment.yml".format(env_name))
 
     build(ctx, env_name=env_name)
 
@@ -93,7 +94,7 @@ def demofiles(ctx, clean=False, demofolder=demofolder):
             ctx.run('git clone --depth 1 https://github.com/{}.git'.format(repo))
         assert os.path.isdir(repo.split('/')[1]), '{} failed download'.format(repo)
     # This empty file and empty folder are for showing drag and drop in jupyterlab
-    ctx.run('touch move_this_file.txt; mkdir move_it_here')
+    ctx.run('touch move_this_file.txt{0!s} mkdir move_it_here'.format(concat_cmd))
 
 
 @task
@@ -189,8 +190,17 @@ def talk(ctx, talk_name, clean=False):
                 shutil.copy(old_file, os.path.join(talk_name, new_file))
 
 
+@task
+def post(ctx, env_name=env_name):
+    '''
+    power on self test
+    '''
+    cmd = 'where conda'
+    ctx.run(cmd.format(source, env_name))
+
+
 # Configure cross-platform settings.
-ns = Collection(environment, build, demofiles, r, clean, talk)
+ns = Collection(environment, build, demofiles, r, clean, talk, post)
 ns.configure({
     'run': {
         'shell': which('bash') if os.name != 'nt' else which('cmd'),
